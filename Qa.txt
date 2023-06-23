@@ -1,0 +1,202 @@
+Q1
+(a) For each of the assertions (i) through (iii) below, discuss whether the database structure forces the 
+assertion to be true or not. Make reference to specific parts of the ERD to support your answers. 
+(i) When a client makes a booking, the reservation must be for one continuous series of days. 
+[2 marks] 
+
+True, in one reservation, there is only one start Date and End Date, instead of discrete date. This indicates a continuous period within a bound of single reservation.
+
+Can’t we use two rows in the reservation table with the same reservation ID? Why not?
+
+(ii) A service may be available across an entire country, irrespective of city in that country. 
+[2 marks] 
+
+False, in ‘Available Service’ Entity, both ‘Country’ and ‘City’ are considered as primary key. This means that service will be differentiated by a city within a country.
+
+What is it about them being PK that makes this true?
+
+(iii) Property features are generic and can only be displayed on the website as a simple list of features available at each property. 
+[2 marks]
+ 
+True, the ‘Property Feature’ provides a simple link between  ‘Property’ and  ‘Feature’, with a Description for each feature. Therefore, property features can be displayed as a simple list for each property.
+
+Is a description a simple list?
+
+(b) When saving a new reservation, can the total price including charges for all services, be calculated 
+automatically by the system? Explain with reference to the diagram. 
+[2 marks] 
+
+Yes, the attribute of ‘total price’ is included in the ‘Reservation’ entity. This means that when a new reservation saved, the total price will be calculated by the system automatically.
+
+Wrong. Just because data is saved somewhere in the database does not mean it was calculated automatically. It could have been calculated by a person and then entered along with the other data.
+
+(c) After a recent increase in the number of late cancellations, ULR wants to institute a policy that customers must pay a deposit of 50% at the time of booking. If a cancellation is made more than a month before the reservation starts, it will be refunded. The remaining balance would be due for payment 30 days prior to reservation start. 
+
+Describe why the existing database structure cannot support this new policy. 
+Describe the changes that would need to be made to the database to support this policy. 
+[4 marks]
+The reason is that ‘total price’ is an attribute in reservation entity, which means that when customers make a reservation, they should pay full amount there is no attribute or entity could track the partial payment.
+
+To achieve this goal, the attribute of ‘amount’ and ‘Date’ in ‘Payment’ Entity should be changed to ‘Deposit’ and ‘Deposit Date’ and ‘Balance Amount’ and ‘Balance Payment Date’. Also, an attribute of ‘Cancelation Date’ should be added on the entity of ‘Reservation’.
+
+Right idea, poor solution.
+
+(d) For each SQL statement (i) through (v) below, consider the information returned by each query. Using 
+everyday business language, describe the nature or business intent, and usefulness, of that information to ULR staff or customers. 
+DO NOT rephrase the query (e.g., selects all records where <field> is <some criteria> and sorts by 
+<field>). 
+AVOID making assumptions about the way you think ULR would/should typically keep records. Answer 
+only with reference to information as it is recorded in the database. 
+(i) SELECT Country, City, SUM(Amount) as Total 
+FROM Payment py 
+INNER JOIN Reservation r ON r.Payment_ID = py.Payment_ID 
+INNER JOIN Property pr ON pr.Property_ID = r.Property_ID 
+WHERE DATE_TRUNC(Date, 'month') = DATE_TRUNC(GETDATE(), 'month') 
+GROUP BY Country, City 
+ORDER BY Total DESC 
+[2 marks] 
+This query gives the total amount of payments made for bookings in the current month by city and country. This data can help ULR staff assess revenue distribution and market performance across multiple locations.
+
+(ii) SELECT 
+c.Name, c.Phone, c.eMail, 
+r.Total_Price, r.Start_Date, r.End_Date, 
+p.Address, p.City, p.Country 
+FROM Reservation r 
+INNER JOIN Property p ON p.Property_ID = r.Property_ID 
+INNER JOIN Client c ON c.Client_ID = r.Client_ID 
+WHERE Payment_ID IS NULL 
+AND DATE_DIFF(GETDATE(), Start_Date, 'day') BETWEEN 21 and 42 
+[2 marks]
+This query gives information on clients who have placed a reservation but have yet to pay, and whose reservation start date is between 21 and 42 days from today. This could help ULR staff follow up with clients regarding upcoming payments.
+
+Something more specific to say about why 21 to 42 is the chosen range?
+
+(iii) SELECT Country, City, Address, 
+SUM( 
+DATE_DIFF( 
+GREATEST(r.start_date, DATE_PARSE('2022-01-01', 'yyyy-MM-dd')), 
+LEAST(r.end_date, DATE_PARSE('2022-12-31', 'yyyy-MM-dd')), 
+'day' 
+) 
+) / 365 * 100 as Rate 
+FROM Property pr 
+LEFT JOIN Reservation r ON r.Property_ID = pr.Property_ID 
+AND (YEAR(r.End_Date) = 2022 OR YEAR(r.Start_Date) = 2022) 
+GROUP BY Country, City, Address 
+ORDER BY Rate 
+[2 marks]
+This query gives the occupancy rate, sorted by rate, for each property in 2022. The rate is calculated by the number of days the property has been occupied. This could help ULR identify performance of each property in different cities and countries, and devise strategies to improve their occupancy rates.
+
+Which way are the rates sorted, i.e., what values appear first. What focus does this suggest?
+(iv) WITH rms AS ( 
+SELECT Property_ID, 
+SUM(Max_Guests) as Guests, 
+SUM(CASE WHEN Room_Type = 'Bedroom' THEN 1 END) as Bedrooms, 
+SUM(CASE WHEN Room_Type = 'Bathroom' THEN 1 END) as Bathrooms 
+FROM Property_Room rm 
+GROUP BY Property_ID 
+) 
+SELECT TOP 1 
+Guests, Bedrooms, Bathrooms, Min_Night_Stay, Nightly_Rate 
+FROM Property_Rate rt 
+INNER JOIN rms ON rms.Property_ID = rt.Property_ID 
+-- Change Property and Date filters as needed 
+WHERE rt.Property_ID = 1234 
+AND Effective_Date <= DATE_PARSE('2022-07-02', 'yyyy-MM-dd') 
+ORDER BY Effective_Date DESC 
+This query provides information about a property with ID 1234, including the maximum number of guests it can accommodate, the number of bedrooms and bathrooms it has, and its minimum requirement to stay and nightly rate before 2nd July 2022). This could be useful to ULR staff or customers to learn about the offerings and prices fluctuations of1st half year of a property with ID 1234
+
+Your understanding of the date filter isn’t correct. It will not include 6 months of rates.
+(v) WITH ld AS ( 
+SELECT Property_ID, MAX(End_Date) AS Av_From FROM Reservation 
+WHERE End_Date < DATEADD(week, 2, GETDATE()) 
+GROUP BY Property_ID 
+), 
+nd AS ( 
+SELECT Property_ID, MIN(Start_Date) AS Av_To FROM Reservation 
+WHERE Start_Date > DATEADD(week, 2, GETDATE()) 
+GROUP BY Property_ID 
+) 
+SELECT p.*, ld.Av_From, nd.Av_To 
+FROM Property p 
+LEFT JOIN ld USING (Property_ID) 
+LEFT JOIN nd USING (Property_ID) 
+WHERE p.Property_ID NOT IN ( 
+SELECT Property_ID FROM Reservation r 
+WHERE DATEADD(week, 2, GETDATE()) BETWEEN r.Start_Date AND r.End_Date 
+) 
+[2 marks]
+This query gives information about properties that are not currently booked for bookings beginning in two weeks, as well as the dates they will be available from and until. This information may be valuable to ULR customers looking for available properties soon, as well as ULR workers managing bookings and property availability.
+
+Q2
+(a) What is the main intent of this program – why would someone have written it? 
+[1 marks]
+The purpose of XYZ Bank’s program is to calculate and save the interest profit on different bank accounts within the range of 31st Aug to 30th Sep as results. There are some factors like account type, balance, rates, and growth are considered.
+
+(b) By examining the logic of this code, describe the incentives that XYZ Bank Ltd offers customers to keep their money in XYZ bank accounts. 
+[3 marks]
+
+The incentives provided by XYZ Bank are:
+1.	Higher balances of deposit can get  higher interests. For example, TRN account with amount of 300k will get an interest rate of 0.05% but amount of 5k will get nothing.
+
+2.	Different  deposit account will enjoy different level of interests. SAVB can enjoy higher interest rate of return than the account of TRN and SAV.
+
+(c) Give better names to the two control parameters, date1 and date2. How does setting different values for these control the scope and logic of the program? 
+[2 marks]
+
+Date1 and date2 can be renamed as ‘start_int_cal_day’ and ‘end_int_cal_day’’. These two parameters define the period to calculate the interest rate. To set different values to control the scope, the time range can be customized to calculate the interest rate weekly, monthly, quarterly, or yearly.
+(d) Describe the purpose of parameters, b, r1, r2 and r3. What is the interdependence between b and r1, r2, r3 (i.e. can one on them be edited without giving consideration whether the others might also need to be edited)? 
+[2 marks]
+b, r1, r2 and r3 define the system of interest mutually. b represents the amount range for different account categories.r1, r2 and r3 represents the interest rate applied in TRN, SAV and SAVB separately and respectively. Any of these parameters should not be modified without considerations.
+
+(e) Give a better name to the control parameter g. Describe the purpose of this parameter. 
+[2 marks]
+‘growth_rate_min’ could be a better name. The purpose of this parameter is to set a minimum growth rate for account SAV. If the growth of deposit amount is beyond 50%, the SAV account will be changed to SAVB account, and the user will enjoy a higher interest rate.
+
+(f) Give a better name to the function somefunc. Document the algorithm implemented by this function, i.e., summarize its logic using everyday business language so that a business person who knows nothing about programming could understand what it does. 
+[4 marks] 
+A better name for some_func could be int_cal. 
+
+Business language explanation:
+If the account belongs to TRN, the interest will be calculated by balance multiplying with the corresponding interest rate.
+
+If the account belongs to SAV, and the growth rate is less than 50%, the interest return will be calculated as the same way. However, if the growth rate is more than 50%, the interest rate will apply SAVB rate.
+
+(g) Consider the rather generic column headers Col1 and Col2, and associated Description 1 and 
+Description 2. What is the difference between Col1 and Col2? Assuming that the two descriptions would end up on a customer’s transaction statement, what would we expect these two descriptions to typically say? 
+[2 marks]
+To associate with description 1 and 2, col 1 represent interest rate return without exceeding the growth rate, and col 2 represents interest rate return exceeding the growth rate.
+
+Q3:
+(a) Briefly describe the strengths of the design of this dashboard. [2 marks] 
+The layout of this dashboard is easy to read, and the choice of charts help to convey more understandable information.
+
+1. Diversity of Visualization: there are various type of charts in this dashboard, such as pie chart, bar chart, and waterfall chart. This allows for different perspective of analysis.
+2. Logic Layout: the categorization of data based on budget types (Salaries, O\&M, Minor Capital) will be helpful for users to gain relevant information quickly, and this represents a hierarchical structure.
+3. Color Emphasis: The use of color in different charts are chosen with light and dark colors to distinguish predicted values from actual values. Also, for the waterfall chart, the green and red represent the increase and decrease effectively.
+4. Comprehensive analysis: The dashboard includes broad and general overviews, such as reginal and allotment comparison, and a more detailed analysis, such as monthly changes of O&M.
+ 
+You are focusing on content too much. Review the Evergreen checklist for numerous (albeit) smaller things that are done properly.
+
+(b) Critically assess the weaknesses of the design of this dashboard and suggest ways to improve the 
+design. [8 marks]
+1.	The area of KPI is on the bottom of the dashboard. So users may not focus on the KPI when they first have a glance.
+
+Recommendation: KPIs are the most important part, and it should be put at the top of the dashboard to draw user’s attention at first.
+2.	The design is too colorful, which is difficult for users to find connections between graphs.
+Recommendation: the color choice should be consistent. For example, the color for the pie chart of O&M should be consistent with the right waterfall chart.
+
+3.	The label of data is too redundant as the axis already show the range of number. There is no need to show over-accurate data with two decimals.
+
+Recommendation: remove the data labels for the top two and the last bar charts. Also, changing the numeric labels of the three vertical columns of the pie chart on the left to percentage labels will be more intuitive.
+
+4.	The title of each chart are difficult to understand, some of titles are too short, and some of them are too long. Also, most of titles cannot explain the meaning of the charts.
+Recommendation: Change the length of the title from six to twelve words, and summarize the meaning of each graph to convey exact information
+
+
+
+Colour consistency isn't the issue. We should not bind colour values to dimension values. We should assign colours to measure names, e.g. actual vs forecast.
+Is it so simple to add interactive filters that would be useful? Most of the charts are already filtered in such a way, that additional filters would do nothing or be confusing. Your example is to use budget category as a filter. That would not affect the pie charts as they are already split by category, as is the waterfall chart. There's a major issue with the design that sets non-user changeable filters, rather than starting at the highest aggregation, then allowing filtering down into detail. As a result, we can't trivially "add" filtering.
+Are those 4 very precise numbers also KPls. Should only their precision be reduced, or should they also be moved?
+Not all budgeting aligns to months. Some organisations use 13 4-week periods, others use odd start dates (May 15 for example was the start of the budget year at my previous university)
+
