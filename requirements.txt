@@ -10,3 +10,5 @@ numpy
 
 huggingface_hub
 sherpa-onnx
+
+openai
